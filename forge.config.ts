@@ -26,6 +26,8 @@ const SHERPA_NATIVE_MODULE_PATH = path.resolve(
 const MODEL_DIRECTORY_NAME =
   'sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01';
 const REQUIRED_MODEL_FILES = ['tokens.txt', 'model.int8.onnx', 'bbpe.model'];
+const SHOULD_CODESIGN_MAC = process.env.MAC_CODESIGN === '1';
+const MAC_CODESIGN_IDENTITY = process.env.MAC_CODESIGN_IDENTITY?.trim();
 
 const assertSherpaRuntimePresent = (): void => {
   const missing: string[] = [];
@@ -76,6 +78,11 @@ const config: ForgeConfig = {
     appBundleId: 'me.timlau.sherpaonnxdemo',
     appCategoryType: 'public.app-category.utilities',
     executableName: 'Sherpa ONNX Demo',
+    osxSign: SHOULD_CODESIGN_MAC
+      ? {
+          identity: MAC_CODESIGN_IDENTITY || undefined,
+        }
+      : undefined,
     usageDescription: {
       Microphone: 'Sherpa ONNX Demo needs microphone access for realtime speech recognition.',
     },
