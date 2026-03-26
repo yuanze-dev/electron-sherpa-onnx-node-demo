@@ -6,13 +6,8 @@ const MODEL_DIRECTORY_NAME =
   'sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01';
 
 const TOKEN_FILENAME = 'tokens.txt';
-const MODEL_CANDIDATES = [
-  'model.int8.onnx',
-  'model.onnx',
-  'encoder-epoch-99-avg-1.int8.onnx',
-  'encoder-epoch-99-avg-1.onnx',
-  'encoder.onnx',
-];
+const MODEL_FILENAME = 'model.int8.onnx';
+const BPE_MODEL_FILENAME = 'bbpe.model';
 
 interface SherpaModelPaths {
   modelRoot: string;
@@ -25,21 +20,6 @@ const ensureFileExists = (filePath: string, label: string) => {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Missing ${label} at ${filePath}`);
   }
-};
-
-const resolveExistingModelFile = (modelDir: string) => {
-  for (const candidate of MODEL_CANDIDATES) {
-    const candidatePath = path.join(modelDir, candidate);
-    if (fs.existsSync(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  throw new Error(
-    `Missing model .onnx file in ${modelDir}. Expected one of: ${MODEL_CANDIDATES.join(
-      ', ',
-    )}`,
-  );
 };
 
 export const resolveSherpaModelPaths = (): SherpaModelPaths => {
@@ -58,7 +38,11 @@ export const resolveSherpaModelPaths = (): SherpaModelPaths => {
   const tokens = path.join(modelDir, TOKEN_FILENAME);
   ensureFileExists(tokens, 'tokens file');
 
-  const model = resolveExistingModelFile(modelDir);
+  const model = path.join(modelDir, MODEL_FILENAME);
+  ensureFileExists(model, 'model file');
+
+  const bpeModel = path.join(modelDir, BPE_MODEL_FILENAME);
+  ensureFileExists(bpeModel, 'bpe model file');
 
   return {
     modelRoot,
