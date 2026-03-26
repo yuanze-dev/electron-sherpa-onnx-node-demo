@@ -14,7 +14,7 @@ const MODEL_CANDIDATES = [
   'encoder.onnx',
 ];
 
-export interface SherpaModelPaths {
+interface SherpaModelPaths {
   modelRoot: string;
   modelDir: string;
   tokens: string;
