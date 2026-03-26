@@ -48,9 +48,9 @@ export interface AsrStatusEvent {
 }
 
 export interface SherpaAsrApi {
-  startSession(payload: StartAsrRequest): Promise<void>;
-  pushAudioChunk(payload: AudioChunkPayload): Promise<void>;
-  stopSession(): Promise<void>;
+  startSession(payload: StartAsrRequest): Promise<RawResultTransport | null>;
+  pushAudioChunk(payload: AudioChunkPayload): Promise<RawResultTransport | null>;
+  stopSession(): Promise<RawResultTransport | null>;
   onResult(listener: (transport: RawResultTransport) => void): () => void;
   onStatus(listener: (event: AsrStatusEvent) => void): () => void;
 }

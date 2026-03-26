@@ -71,6 +71,14 @@ const handleAsrError = (action: string, error: unknown) => {
   emitStatus('error', sessionId, message);
 };
 
+process.on('uncaughtException', (error) => {
+  handleAsrError('uncaughtException', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  handleAsrError('unhandledRejection', reason);
+});
+
 ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
   try {
     emitStatus('starting');
@@ -79,8 +87,10 @@ ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
     }
     const sessionId = asrSession.start(payload);
     emitStatus('listening', sessionId);
+    return null;
   } catch (error) {
     handleAsrError('start', error);
+    return null;
   }
 });
 
@@ -91,14 +101,18 @@ ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
     }
     const result = asrSession.pushAudio(payload);
     if (result) {
-      sendResult({
+      const transport: RawResultTransport = {
         sessionId: asrSession.getSessionId(),
         rawResult: result,
         emittedAt: Date.now(),
-      });
+      };
+      sendResult(transport);
+      return transport;
     }
+    return null;
   } catch (error) {
     handleAsrError('push-audio', error);
+    return null;
   }
 });
 
@@ -106,21 +120,26 @@ ipcMain.handle('asr:stop', async () => {
   try {
     if (!asrSession) {
       emitStatus('idle');
-      return;
+      return null;
     }
     const sessionId = asrSession.getSessionId();
     emitStatus('stopping', sessionId);
     const result = asrSession.stop();
     if (result) {
-      sendResult({
+      const transport: RawResultTransport = {
         sessionId,
         rawResult: result,
         emittedAt: Date.now(),
-      });
+      };
+      sendResult(transport);
+      emitStatus('idle', sessionId);
+      return transport;
     }
     emitStatus('idle', sessionId);
+    return null;
   } catch (error) {
     handleAsrError('stop', error);
+    return null;
   } finally {
     if (asrSession && !asrSession.isActive()) {
       asrSession = null;
