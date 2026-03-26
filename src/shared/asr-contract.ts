@@ -40,10 +40,17 @@ export interface RawResultTransport {
   emittedAt: number;
 }
 
+export interface AsrStatusEvent {
+  status: AsrSessionStatus;
+  sessionId: string;
+  message?: string;
+  emittedAt: number;
+}
+
 export interface SherpaAsrApi {
   startSession(payload: StartAsrRequest): Promise<void>;
   pushAudioChunk(payload: AudioChunkPayload): Promise<void>;
   stopSession(): Promise<void>;
   onResult(listener: (transport: RawResultTransport) => void): () => void;
-  onStatus(listener: (status: AsrSessionStatus, message?: string) => void): () => void;
+  onStatus(listener: (event: AsrStatusEvent) => void): () => void;
 }

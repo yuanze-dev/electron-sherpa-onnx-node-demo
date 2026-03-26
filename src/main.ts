@@ -1,16 +1,27 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { SherpaAsrSession } from './main/asr-session';
 import { resolveSherpaModelPaths } from './main/model-path';
+import type {
+  AsrSessionStatus,
+  AsrStatusEvent,
+  AudioChunkPayload,
+  RawResultTransport,
+  StartAsrRequest,
+} from './shared/asr-contract';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
 
+let mainWindow: BrowserWindow | null = null;
+let asrSession: SherpaAsrSession | null = null;
+
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
@@ -39,6 +50,93 @@ const ensureModelAvailable = () => {
     throw error;
   }
 };
+
+const sendStatus = (event: AsrStatusEvent) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.webContents.send('asr:status', event);
+};
+
+const sendResult = (event: RawResultTransport) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.webContents.send('asr:result', event);
+};
+
+const emitStatus = (status: AsrSessionStatus, sessionId = '', message?: string) => {
+  sendStatus({
+    status,
+    sessionId,
+    message,
+    emittedAt: Date.now(),
+  });
+};
+
+const handleAsrError = (action: string, error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`ASR ${action} failed.`, error);
+  const sessionId = asrSession?.getSessionId() ?? '';
+  emitStatus('error', sessionId, message);
+};
+
+ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
+  try {
+    emitStatus('starting');
+    if (!asrSession) {
+      asrSession = new SherpaAsrSession();
+    }
+    const sessionId = asrSession.start(payload);
+    emitStatus('listening', sessionId);
+  } catch (error) {
+    handleAsrError('start', error);
+  }
+});
+
+ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
+  try {
+    if (!asrSession) {
+      throw new Error('ASR session has not been started.');
+    }
+    const result = asrSession.pushAudio(payload);
+    if (result) {
+      sendResult({
+        sessionId: asrSession.getSessionId(),
+        rawResult: result,
+        emittedAt: Date.now(),
+      });
+    }
+  } catch (error) {
+    handleAsrError('push-audio', error);
+  }
+});
+
+ipcMain.handle('asr:stop', async () => {
+  try {
+    if (!asrSession) {
+      emitStatus('idle');
+      return;
+    }
+    const sessionId = asrSession.getSessionId();
+    emitStatus('stopping', sessionId);
+    const result = asrSession.stop();
+    if (result) {
+      sendResult({
+        sessionId,
+        rawResult: result,
+        emittedAt: Date.now(),
+      });
+    }
+    emitStatus('idle', sessionId);
+  } catch (error) {
+    handleAsrError('stop', error);
+  } finally {
+    if (asrSession && !asrSession.isActive()) {
+      asrSession = null;
+    }
+  }
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
