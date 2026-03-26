@@ -1,4 +1,6 @@
 import { createRequire } from 'node:module';
+import path from 'node:path';
+import { app } from 'electron';
 import { resolveSherpaModelPaths } from './model-path';
 import type {
   AudioChunkPayload,
@@ -46,8 +48,11 @@ type OnlineRecognizerConstructor = new (
 ) => OnlineRecognizerLike;
 
 const loadOnlineRecognizer = (): OnlineRecognizerConstructor => {
+  const streamingAsrModulePath = app.isPackaged
+    ? path.join(process.resourcesPath, 'sherpa-onnx-node', 'streaming-asr.js')
+    : 'sherpa-onnx-node/streaming-asr.js';
   const streamingAsr = require(
-    'sherpa-onnx-node/streaming-asr.js',
+    streamingAsrModulePath,
   ) as { OnlineRecognizer?: OnlineRecognizerConstructor };
   const OnlineRecognizer = streamingAsr.OnlineRecognizer;
 

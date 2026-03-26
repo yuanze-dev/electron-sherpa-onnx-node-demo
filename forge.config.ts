@@ -11,9 +11,41 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const MODELS_RESOURCE_PATH = path.resolve(__dirname, 'resources', 'models');
+const SHERPA_NODE_MODULE_PATH = path.resolve(
+  __dirname,
+  'node_modules',
+  'sherpa-onnx-node',
+);
+const SHERPA_PLATFORM = process.platform === 'win32' ? 'win' : process.platform;
+const SHERPA_NATIVE_MODULE_NAME = `sherpa-onnx-${SHERPA_PLATFORM}-${process.arch}`;
+const SHERPA_NATIVE_MODULE_PATH = path.resolve(
+  __dirname,
+  'node_modules',
+  SHERPA_NATIVE_MODULE_NAME,
+);
 const MODEL_DIRECTORY_NAME =
   'sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01';
 const REQUIRED_MODEL_FILES = ['tokens.txt', 'model.int8.onnx', 'bbpe.model'];
+
+const assertSherpaRuntimePresent = (): void => {
+  const missing: string[] = [];
+
+  for (const [label, targetPath] of [
+    ['sherpa runtime module', SHERPA_NODE_MODULE_PATH],
+    ['sherpa native module', SHERPA_NATIVE_MODULE_PATH],
+  ] as const) {
+    if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isDirectory()) {
+      missing.push(`${label}: ${targetPath}`);
+    }
+  }
+
+  if (missing.length > 0) {
+    const formatted = missing.map((entry) => `- ${entry}`).join('\n');
+    throw new Error(
+      `Missing sherpa runtime assets for packaging:\n${formatted}\nEnsure npm installed the required platform packages before packaging.`,
+    );
+  }
+};
 
 const assertModelAssetsPresent = (): void => {
   const modelDir = path.join(MODELS_RESOURCE_PATH, MODEL_DIRECTORY_NAME);
@@ -41,11 +73,16 @@ const assertModelAssetsPresent = (): void => {
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    extraResource: [MODELS_RESOURCE_PATH],
+    extraResource: [
+      MODELS_RESOURCE_PATH,
+      SHERPA_NODE_MODULE_PATH,
+      SHERPA_NATIVE_MODULE_PATH,
+    ],
   },
   hooks: {
     prePackage: async () => {
       assertModelAssetsPresent();
+      assertSherpaRuntimePresent();
     },
   },
   rebuildConfig: {},
