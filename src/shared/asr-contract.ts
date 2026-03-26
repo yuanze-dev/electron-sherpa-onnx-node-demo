@@ -48,6 +48,7 @@ export interface AsrStatusEvent {
 }
 
 export interface SherpaAsrApi {
+  /** Preload bridge API exposed on `window.sherpaAsr` via `contextBridge`. */
   startSession(payload: StartAsrRequest): Promise<RawResultTransport | null>;
   pushAudioChunk(payload: AudioChunkPayload): Promise<RawResultTransport | null>;
   stopSession(): Promise<RawResultTransport | null>;
