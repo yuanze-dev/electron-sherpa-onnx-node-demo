@@ -69,18 +69,71 @@ const handleAsrError = (action: string, error: unknown) => {
   console.error(`ASR ${action} failed.`, error);
   const sessionId = asrSession?.getSessionId() ?? '';
   emitStatus('error', sessionId, message);
+  return message;
+};
+
+const exitAfterFatalError = (code = 1) => {
+  const shutdown = () => {
+    if (!app.isReady()) {
+      process.exit(code);
+      return;
+    }
+    app.exit(code);
+  };
+
+  setTimeout(shutdown, 100);
 };
 
 process.on('uncaughtException', (error) => {
   handleAsrError('uncaughtException', error);
+  exitAfterFatalError(1);
 });
 
 process.on('unhandledRejection', (reason) => {
   handleAsrError('unhandledRejection', reason);
+  exitAfterFatalError(1);
 });
+
+const assertValidSampleRate = (sampleRate: number) => {
+  if (!Number.isFinite(sampleRate)) {
+    throw new Error('Sample rate must be a finite number.');
+  }
+  if (sampleRate < 8000 || sampleRate > 48000) {
+    throw new Error('Sample rate must be between 8000 and 48000 Hz.');
+  }
+};
+
+const MAX_AUDIO_SAMPLES = 16000 * 2;
+
+const assertValidAudioPayload = (payload: AudioChunkPayload) => {
+  if (
+    !payload ||
+    (!Array.isArray(payload.samples) &&
+      !(payload.samples instanceof Float32Array))
+  ) {
+    throw new Error('Audio payload must include PCM samples.');
+  }
+  const samples = payload.samples;
+  if (samples.length === 0) {
+    return;
+  }
+  if (samples.length > MAX_AUDIO_SAMPLES) {
+    throw new Error('Audio payload is too large.');
+  }
+  for (let i = 0; i < samples.length; i += 1) {
+    const value = samples[i];
+    if (!Number.isFinite(value)) {
+      throw new Error('Audio payload contains non-finite values.');
+    }
+    if (value < -1 || value > 1) {
+      throw new Error('Audio payload contains samples outside [-1, 1].');
+    }
+  }
+};
 
 ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
   try {
+    assertValidSampleRate(payload.sampleRate);
     emitStatus('starting');
     if (!asrSession) {
       asrSession = new SherpaAsrSession();
@@ -90,7 +143,7 @@ ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
     return null;
   } catch (error) {
     handleAsrError('start', error);
-    return null;
+    throw error;
   }
 });
 
@@ -99,6 +152,7 @@ ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
     if (!asrSession) {
       throw new Error('ASR session has not been started.');
     }
+    assertValidAudioPayload(payload);
     const result = asrSession.pushAudio(payload);
     if (result) {
       const transport: RawResultTransport = {
@@ -112,7 +166,7 @@ ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
     return null;
   } catch (error) {
     handleAsrError('push-audio', error);
-    return null;
+    throw error;
   }
 });
 
@@ -139,7 +193,7 @@ ipcMain.handle('asr:stop', async () => {
     return null;
   } catch (error) {
     handleAsrError('stop', error);
-    return null;
+    throw error;
   } finally {
     if (asrSession && !asrSession.isActive()) {
       asrSession = null;

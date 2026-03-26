@@ -82,35 +82,44 @@ export class SherpaAsrSession {
       throw new Error('ASR session is already active.');
     }
 
-    const { tokens, model, bpeModel } = resolveSherpaModelPaths();
     this.sampleRate = request.sampleRate;
-
-    const OnlineRecognizer = loadOnlineRecognizer();
-    const config: OnlineRecognizerConfig = {
-      featConfig: {
-        sampleRate: this.sampleRate,
-      },
-      modelConfig: {
-        zipformer2Ctc: {
-          model,
-        },
-        tokens,
-        bpeVocab: bpeModel,
-        numThreads: 2,
-        provider: 'cpu',
-        debug: 0,
-      },
-      decodingMethod: 'greedy_search',
-      enableEndpoint: 1,
-    };
-
-    this.recognizer = new OnlineRecognizer(config);
-    this.stream = this.recognizer.createStream();
-    this.sessionId = `session-${Date.now()}-${Math.random()
-      .toString(16)
-      .slice(2, 8)}`;
     this.lastResult = null;
-    return this.sessionId;
+
+    try {
+      const { tokens, model, bpeModel } = resolveSherpaModelPaths();
+
+      const OnlineRecognizer = loadOnlineRecognizer();
+      const config: OnlineRecognizerConfig = {
+        featConfig: {
+          sampleRate: this.sampleRate,
+        },
+        modelConfig: {
+          zipformer2Ctc: {
+            model,
+          },
+          tokens,
+          bpeVocab: bpeModel,
+          numThreads: 2,
+          provider: 'cpu',
+          debug: 0,
+        },
+        decodingMethod: 'greedy_search',
+        enableEndpoint: 1,
+      };
+
+      this.recognizer = new OnlineRecognizer(config);
+      this.stream = this.recognizer.createStream();
+      this.sessionId = `session-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2, 8)}`;
+      return this.sessionId;
+    } catch (error) {
+      this.recognizer = null;
+      this.stream = null;
+      this.sessionId = '';
+      this.lastResult = null;
+      throw error;
+    }
   }
 
   pushAudio(payload: AudioChunkPayload): RawSherpaOnlineResult | null {
