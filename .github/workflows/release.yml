@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+env:
+  MODEL_ARCHIVE_URL: https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01.tar.bz2
+  MODEL_DIR: resources/models/sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01
+
 jobs:
   resolve-tag:
     runs-on: ubuntu-latest
@@ -59,6 +63,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download sherpa model assets
+        shell: bash
+        run: |
+          mkdir -p resources/models
+          curl -L "${MODEL_ARCHIVE_URL}" -o /tmp/sherpa-model.tar.bz2
+          tar -xjf /tmp/sherpa-model.tar.bz2 -C resources/models
+
+          if [ ! -f "${MODEL_DIR}/model.int8.onnx" ]; then
+            echo "Expected model file missing at ${MODEL_DIR}/model.int8.onnx" >&2
+            exit 1
+          fi
+
       - name: Build macOS dmg with Electron Forge
         run: npm run make:mac
 
@@ -99,6 +115,18 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Download sherpa model assets
+        shell: bash
+        run: |
+          mkdir -p resources/models
+          curl -L "${MODEL_ARCHIVE_URL}" -o "${RUNNER_TEMP}/sherpa-model.tar.bz2"
+          tar -xjf "${RUNNER_TEMP}/sherpa-model.tar.bz2" -C resources/models
+
+          if [ ! -f "${MODEL_DIR}/model.int8.onnx" ]; then
+            echo "Expected model file missing at ${MODEL_DIR}/model.int8.onnx" >&2
+            exit 1
+          fi
 
       - name: Build Windows installer with Electron Forge
         run: npm run make:win
