@@ -120,8 +120,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p resources/models
-          curl -L "${MODEL_ARCHIVE_URL}" -o "${RUNNER_TEMP}/sherpa-model.tar.bz2"
-          tar -xjf "${RUNNER_TEMP}/sherpa-model.tar.bz2" -C resources/models
+          curl -L "${MODEL_ARCHIVE_URL}" -o sherpa-model.tar.bz2
+          tar -xjf sherpa-model.tar.bz2 -C resources/models
+          rm -f sherpa-model.tar.bz2
 
           if [ ! -f "${MODEL_DIR}/model.int8.onnx" ]; then
             echo "Expected model file missing at ${MODEL_DIR}/model.int8.onnx" >&2
