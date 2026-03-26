@@ -67,6 +67,7 @@ export class SherpaAsrSession {
   private stream: OnlineStreamLike | null = null;
   private sessionId = '';
   private sampleRate = 16000;
+  private lastResult: RawSherpaOnlineResult | null = null;
 
   getSessionId(): string {
     return this.sessionId;
@@ -108,6 +109,7 @@ export class SherpaAsrSession {
     this.sessionId = `session-${Date.now()}-${Math.random()
       .toString(16)
       .slice(2, 8)}`;
+    this.lastResult = null;
     return this.sessionId;
   }
 
@@ -140,6 +142,7 @@ export class SherpaAsrSession {
     this.stream = null;
     this.recognizer = null;
     this.sessionId = '';
+    this.lastResult = null;
 
     return finalResult;
   }
@@ -149,15 +152,22 @@ export class SherpaAsrSession {
       return null;
     }
 
-    let latest: RawSherpaOnlineResult | null = null;
+    let latest: RawSherpaOnlineResult | null = this.lastResult;
+    let decoded = false;
     while (this.recognizer.isReady(this.stream)) {
       this.recognizer.decode(this.stream);
       latest = this.recognizer.getResult(this.stream);
+      decoded = true;
       if (this.recognizer.isEndpoint(this.stream)) {
         this.recognizer.reset(this.stream);
       }
     }
 
+    if (!decoded) {
+      latest = this.recognizer.getResult(this.stream);
+    }
+
+    this.lastResult = latest;
     return latest;
   }
 }

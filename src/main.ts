@@ -2,7 +2,6 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { SherpaAsrSession } from './main/asr-session';
-import { resolveSherpaModelPaths } from './main/model-path';
 import type {
   AsrSessionStatus,
   AsrStatusEvent,
@@ -40,15 +39,6 @@ const createWindow = () => {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
-};
-
-const ensureModelAvailable = () => {
-  try {
-    resolveSherpaModelPaths();
-  } catch (error) {
-    console.error('Failed to resolve sherpa model assets.', error);
-    throw error;
-  }
 };
 
 const sendStatus = (event: AsrStatusEvent) => {
@@ -142,7 +132,6 @@ ipcMain.handle('asr:stop', async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  ensureModelAvailable();
   createWindow();
 });
 
