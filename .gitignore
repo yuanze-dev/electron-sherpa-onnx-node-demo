@@ -91,5 +91,9 @@ typings/
 # Electron-Forge
 out/
 
+# Sherpa model assets
+resources/models/**
+!resources/models/.gitkeep
+
 # Superpowers visual brainstorming artifacts
 .superpowers/

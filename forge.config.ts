@@ -7,11 +7,46 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const MODELS_RESOURCE_PATH = path.resolve(__dirname, 'resources', 'models');
+const MODEL_DIRECTORY_NAME =
+  'sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01';
+const REQUIRED_MODEL_FILES = ['tokens.txt', 'model.int8.onnx', 'bbpe.model'];
+
+const assertModelAssetsPresent = (): void => {
+  const modelDir = path.join(MODELS_RESOURCE_PATH, MODEL_DIRECTORY_NAME);
+  const missing: string[] = [];
+
+  if (!fs.existsSync(modelDir) || !fs.statSync(modelDir).isDirectory()) {
+    missing.push(`model directory: ${modelDir}`);
+  } else {
+    for (const fileName of REQUIRED_MODEL_FILES) {
+      const filePath = path.join(modelDir, fileName);
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        missing.push(`file: ${filePath}`);
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    const formatted = missing.map((entry) => `- ${entry}`).join('\n');
+    throw new Error(
+      `Missing sherpa model assets for packaging:\n${formatted}\nEnsure the model files are present under ${MODELS_RESOURCE_PATH} before packaging.`,
+    );
+  }
+};
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    extraResource: ['resources/models'],
+    extraResource: [MODELS_RESOURCE_PATH],
+  },
+  hooks: {
+    prePackage: async () => {
+      assertModelAssetsPresent();
+    },
   },
   rebuildConfig: {},
   makers: [
