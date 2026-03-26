@@ -2,12 +2,62 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Hello World!</title>
-
+    <title>Realtime ASR Demo</title>
   </head>
   <body>
-    <h1>💖 Hello World!</h1>
-    <p>Welcome to your Electron application.</p>
+    <div class="app">
+      <header class="app-header">
+        <h1 class="app-title">Realtime ASR Demo</h1>
+      </header>
+
+      <section class="controls" aria-label="ASR controls">
+        <div class="control-group">
+          <label class="control-label" for="mic-select">Microphone</label>
+          <select id="mic-select" class="control-select" name="microphone">
+            <option value="">Select a microphone</option>
+          </select>
+          <button id="refresh-mics" class="button" type="button">Refresh</button>
+        </div>
+
+        <div class="control-group control-actions">
+          <button id="start-button" class="button button-primary" type="button">
+            Start
+          </button>
+          <button
+            id="stop-button"
+            class="button button-secondary"
+            type="button"
+            disabled
+          >
+            Stop
+          </button>
+        </div>
+
+        <div id="status-text" class="status" aria-live="polite">Idle</div>
+      </section>
+
+      <section class="panels" aria-label="ASR output">
+        <article id="transcript-panel" class="panel">
+          <header class="panel-header">
+            <h2 class="panel-title">Transcript</h2>
+          </header>
+          <div class="panel-body">
+            <p id="transcript-text" class="transcript-text">
+              No transcript yet.
+            </p>
+          </div>
+        </article>
+
+        <article id="raw-json-panel" class="panel">
+          <header class="panel-header">
+            <h2 class="panel-title">Raw JSON</h2>
+          </header>
+          <div class="panel-body">
+            <pre id="raw-json" class="raw-json">{}</pre>
+          </div>
+        </article>
+      </section>
+    </div>
     <script type="module" src="/src/renderer.ts"></script>
   </body>
 </html>
