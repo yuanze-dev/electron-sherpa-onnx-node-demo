@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Superpowers visual brainstorming artifacts
+.superpowers/
