@@ -1,6 +1,6 @@
 {
   "name": "electron-sherpa-onnx-node-demo",
-  "productName": "electron-sherpa-onnx-node-demo",
+  "productName": "Sherpa ONNX Demo",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",

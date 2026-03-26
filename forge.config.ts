@@ -73,6 +73,12 @@ const assertModelAssetsPresent = (): void => {
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    appBundleId: 'me.timlau.sherpaonnxdemo',
+    appCategoryType: 'public.app-category.utilities',
+    executableName: 'Sherpa ONNX Demo',
+    usageDescription: {
+      Microphone: 'Sherpa ONNX Demo needs microphone access for realtime speech recognition.',
+    },
     extraResource: [
       MODELS_RESOURCE_PATH,
       SHERPA_NODE_MODULE_PATH,
