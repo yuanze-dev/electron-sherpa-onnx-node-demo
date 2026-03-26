@@ -14,11 +14,16 @@ interface SherpaModelPaths {
   modelDir: string;
   tokens: string;
   model: string;
+  bpeModel: string;
 }
 
 const ensureFileExists = (filePath: string, label: string) => {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Missing ${label} at ${filePath}`);
+  }
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) {
+    throw new Error(`Expected ${label} to be a file at ${filePath}`);
   }
 };
 
@@ -49,5 +54,6 @@ export const resolveSherpaModelPaths = (): SherpaModelPaths => {
     modelDir,
     tokens,
     model,
+    bpeModel,
   };
 };
