@@ -2,12 +2,15 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { SherpaAsrSession } from './main/asr-session';
+import { ASR_IPC_CHANNELS } from './shared/asr-contract';
 import type {
   AsrSessionStatus,
   AsrStatusEvent,
   AudioChunkPayload,
   RawResultTransport,
+  StartAsrResponse,
   StartAsrRequest,
+  StopAsrResponse,
 } from './shared/asr-contract';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -45,14 +48,14 @@ const sendStatus = (event: AsrStatusEvent) => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
-  mainWindow.webContents.send('asr:status', event);
+  mainWindow.webContents.send(ASR_IPC_CHANNELS.status, event);
 };
 
 const sendResult = (event: RawResultTransport) => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
-  mainWindow.webContents.send('asr:result', event);
+  mainWindow.webContents.send(ASR_IPC_CHANNELS.result, event);
 };
 
 const emitStatus = (status: AsrSessionStatus, sessionId = '', message?: string) => {
@@ -131,7 +134,9 @@ const assertValidAudioPayload = (payload: AudioChunkPayload) => {
   }
 };
 
-ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
+ipcMain.handle(
+  ASR_IPC_CHANNELS.start,
+  async (_event, payload: StartAsrRequest): Promise<StartAsrResponse> => {
   try {
     assertValidSampleRate(payload.sampleRate);
     emitStatus('starting');
@@ -140,14 +145,17 @@ ipcMain.handle('asr:start', async (_event, payload: StartAsrRequest) => {
     }
     const sessionId = asrSession.start(payload);
     emitStatus('listening', sessionId);
-    return null;
+    return { sessionId };
   } catch (error) {
     handleAsrError('start', error);
     throw error;
   }
-});
+},
+);
 
-ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
+ipcMain.handle(
+  ASR_IPC_CHANNELS.pushAudio,
+  async (_event, payload: AudioChunkPayload): Promise<void> => {
   try {
     if (!asrSession) {
       throw new Error('ASR session has not been started.');
@@ -161,20 +169,21 @@ ipcMain.handle('asr:push-audio', async (_event, payload: AudioChunkPayload) => {
         emittedAt: Date.now(),
       };
       sendResult(transport);
-      return transport;
     }
-    return null;
   } catch (error) {
     handleAsrError('push-audio', error);
     throw error;
   }
-});
+},
+);
 
-ipcMain.handle('asr:stop', async () => {
+ipcMain.handle(
+  ASR_IPC_CHANNELS.stop,
+  async (): Promise<StopAsrResponse> => {
   try {
     if (!asrSession) {
       emitStatus('idle');
-      return null;
+      return { sessionId: '', wasActive: false };
     }
     const sessionId = asrSession.getSessionId();
     emitStatus('stopping', sessionId);
@@ -187,10 +196,10 @@ ipcMain.handle('asr:stop', async () => {
       };
       sendResult(transport);
       emitStatus('idle', sessionId);
-      return transport;
+      return { sessionId, wasActive: true };
     }
     emitStatus('idle', sessionId);
-    return null;
+    return { sessionId, wasActive: true };
   } catch (error) {
     handleAsrError('stop', error);
     throw error;
@@ -199,7 +208,8 @@ ipcMain.handle('asr:stop', async () => {
       asrSession = null;
     }
   }
-});
+},
+);
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

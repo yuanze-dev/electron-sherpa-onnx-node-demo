@@ -5,6 +5,14 @@ export type AsrSessionStatus =
   | 'stopping'
   | 'error';
 
+export const ASR_IPC_CHANNELS = {
+  start: 'asr:start',
+  pushAudio: 'asr:push-audio',
+  stop: 'asr:stop',
+  result: 'asr:result',
+  status: 'asr:status',
+} as const;
+
 export interface StartAsrRequest {
   /** Input PCM sample rate in Hz (e.g., 16000). */
   sampleRate: number;
@@ -17,19 +25,7 @@ export interface AudioChunkPayload {
   samples: Float32Array | number[];
 }
 
-export interface RawSherpaOnlineResult {
-  text: string;
-  tokens: string[];
-  timestamps: number[];
-  ys_probs: number[];
-  lm_probs: number[];
-  context_scores: number[];
-  segment: number;
-  words: number[];
-  start_time: number;
-  is_final: boolean;
-  is_eof: boolean;
-}
+export type RawSherpaOnlineResult = Record<string, unknown>;
 
 export interface RawResultTransport {
   /** The active session identifier (if supported) or an empty string. */
@@ -38,6 +34,15 @@ export interface RawResultTransport {
   rawResult: RawSherpaOnlineResult;
   /** Milliseconds since the Unix epoch when the event was emitted. */
   emittedAt: number;
+}
+
+export interface StartAsrResponse {
+  sessionId: string;
+}
+
+export interface StopAsrResponse {
+  sessionId: string;
+  wasActive: boolean;
 }
 
 export interface AsrStatusEvent {
@@ -49,9 +54,11 @@ export interface AsrStatusEvent {
 
 export interface SherpaAsrApi {
   /** Preload bridge API exposed on `window.sherpaAsr` via `contextBridge`. */
-  startSession(payload: StartAsrRequest): Promise<RawResultTransport | null>;
-  pushAudioChunk(payload: AudioChunkPayload): Promise<RawResultTransport | null>;
-  stopSession(): Promise<RawResultTransport | null>;
+  startSession(payload: StartAsrRequest): Promise<StartAsrResponse>;
+  /** Stream results are delivered via `onResult`. */
+  pushAudioChunk(payload: AudioChunkPayload): Promise<void>;
+  /** Final result is delivered via `onResult` before idle status. */
+  stopSession(): Promise<StopAsrResponse>;
   onResult(listener: (transport: RawResultTransport) => void): () => void;
   onStatus(listener: (event: AsrStatusEvent) => void): () => void;
 }
