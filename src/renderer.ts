@@ -12,6 +12,7 @@ interface AppState {
 const TARGET_SAMPLE_RATE = 16000;
 const DEFAULT_CHUNK_FRAMES = 1024;
 const MAX_PUSH_PER_TICK = 4;
+const MAX_QUEUE_CHUNKS = 32;
 
 const state: AppState = {
   status: 'idle',
@@ -36,6 +37,7 @@ let mediaStream: MediaStream | null = null;
 let audioContext: AudioContext | null = null;
 let sourceNode: MediaStreamAudioSourceNode | null = null;
 let processorNode: ScriptProcessorNode | null = null;
+let silenceNode: GainNode | null = null;
 let sessionActive = false;
 let pushQueue: Float32Array[] = [];
 let isPushing = false;
@@ -105,8 +107,12 @@ const teardownAudio = () => {
   if (sourceNode) {
     sourceNode.disconnect();
   }
+  if (silenceNode) {
+    silenceNode.disconnect();
+  }
   processorNode = null;
   sourceNode = null;
+  silenceNode = null;
 
   if (audioContext) {
     audioContext.close().catch(() => undefined);
@@ -136,8 +142,10 @@ const ensurePermission = async () => {
   }
 };
 
-const populateDevices = async () => {
-  await ensurePermission();
+const populateDevices = async (options?: { requestPermission?: boolean }) => {
+  if (options?.requestPermission) {
+    await ensurePermission();
+  }
   const devices = await navigator.mediaDevices.enumerateDevices();
   const inputs = devices.filter((device) => device.kind === 'audioinput');
 
@@ -164,7 +172,7 @@ const populateDevices = async () => {
 
 const resampleToTarget = (input: Float32Array, inputRate: number): Float32Array => {
   if (inputRate === TARGET_SAMPLE_RATE) {
-    return input;
+    return input.slice();
   }
   const ratio = inputRate / TARGET_SAMPLE_RATE;
   const outputLength = Math.max(1, Math.round(input.length / ratio));
@@ -183,7 +191,11 @@ const enqueueSamples = (samples: Float32Array) => {
   if (samples.length === 0) {
     return;
   }
-  pushQueue.push(samples);
+  if (pushQueue.length >= MAX_QUEUE_CHUNKS) {
+    const overflow = pushQueue.length - MAX_QUEUE_CHUNKS + 1;
+    pushQueue.splice(0, overflow);
+  }
+  pushQueue.push(samples.slice());
   if (!isPushing) {
     void flushQueue();
   }
@@ -229,6 +241,8 @@ const buildAudioGraph = async (deviceId: string) => {
   audioContext = new AudioContext();
   sourceNode = audioContext.createMediaStreamSource(mediaStream);
   processorNode = audioContext.createScriptProcessor(DEFAULT_CHUNK_FRAMES, 1, 1);
+  silenceNode = audioContext.createGain();
+  silenceNode.gain.value = 0;
 
   processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
     if (!sessionActive || !audioContext) {
@@ -240,26 +254,34 @@ const buildAudioGraph = async (deviceId: string) => {
   };
 
   sourceNode.connect(processorNode);
-  processorNode.connect(audioContext.destination);
+  processorNode.connect(silenceNode);
+  silenceNode.connect(audioContext.destination);
 
   if (audioContext.state === 'suspended') {
     await audioContext.resume();
   }
 };
 
-const stopSession = async () => {
+const stopSession = async (options?: { preserveStatus?: boolean }) => {
+  const preserveStatus = options?.preserveStatus ?? false;
   if (!sessionActive && state.status !== 'listening') {
     teardownAudio();
-    updateStatus('idle', 'Idle');
+    if (!preserveStatus) {
+      updateStatus('idle', 'Idle');
+    }
     return;
   }
-  updateStatus('stopping', 'Stopping session...');
+  if (!preserveStatus) {
+    updateStatus('stopping', 'Stopping session...');
+  }
   sessionActive = false;
   teardownAudio();
   try {
     const response = await window.sherpaAsr.stopSession();
     state.sessionId = response.sessionId;
-    updateStatus('idle', 'Idle');
+    if (!preserveStatus) {
+      updateStatus('idle', 'Idle');
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     handleRendererError(`Failed to stop session: ${message}`, error);
@@ -323,6 +345,7 @@ const wireListeners = () => {
       const message = event.message ?? '';
       if (event.status === 'error') {
         updateStatus('error', message || 'ASR error', message || 'ASR error');
+        void stopSession({ preserveStatus: true });
         return;
       }
       if (event.status === 'starting') {
@@ -346,7 +369,7 @@ const wireListeners = () => {
 
 refreshButton.addEventListener('click', () => {
   updateStatus(state.status, 'Refreshing microphones...');
-  populateDevices()
+  populateDevices({ requestPermission: true })
     .then(() => {
       updateStatus(state.status, 'Microphones updated.');
     })
@@ -380,7 +403,7 @@ window.addEventListener('beforeunload', () => {
 wireListeners();
 updateControls();
 
-populateDevices().catch((error) => {
+populateDevices({ requestPermission: false }).catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   handleRendererError(`Failed to enumerate microphones: ${message}`, error);
 });
