@@ -8,6 +8,8 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
+    "package:mac": "npm run package -- --platform=darwin",
+    "package:win": "npm run package -- --platform=win32",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
