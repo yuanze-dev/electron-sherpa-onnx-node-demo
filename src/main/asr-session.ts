@@ -1,10 +1,12 @@
-import * as sherpa from 'sherpa-onnx-node';
+import { createRequire } from 'node:module';
 import { resolveSherpaModelPaths } from './model-path';
 import type {
   AudioChunkPayload,
   RawSherpaOnlineResult,
   StartAsrRequest,
 } from '../shared/asr-contract';
+
+const require = createRequire(import.meta.url);
 
 interface OnlineStreamLike {
   acceptWaveform(payload: { samples: Float32Array; sampleRate: number }): void;
@@ -44,9 +46,10 @@ type OnlineRecognizerConstructor = new (
 ) => OnlineRecognizerLike;
 
 const loadOnlineRecognizer = (): OnlineRecognizerConstructor => {
-  const OnlineRecognizer = (
-    sherpa as { OnlineRecognizer?: OnlineRecognizerConstructor }
-  ).OnlineRecognizer;
+  const streamingAsr = require(
+    'sherpa-onnx-node/streaming-asr.js',
+  ) as { OnlineRecognizer?: OnlineRecognizerConstructor };
+  const OnlineRecognizer = streamingAsr.OnlineRecognizer;
 
   if (!OnlineRecognizer) {
     throw new Error('sherpa-onnx-node OnlineRecognizer is not available.');
