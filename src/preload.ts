@@ -20,6 +20,10 @@ const sherpaAsr: SherpaAsrApi = Object.freeze({
     ipcRenderer.invoke(ASR_IPC_CHANNELS.pushAudio, payload),
   stopSession: (): Promise<StopAsrResponse> =>
     ipcRenderer.invoke(ASR_IPC_CHANNELS.stop),
+  getMicrophoneAccess: () =>
+    ipcRenderer.invoke(ASR_IPC_CHANNELS.getMicrophoneAccess),
+  requestMicrophoneAccess: () =>
+    ipcRenderer.invoke(ASR_IPC_CHANNELS.requestMicrophoneAccess),
   onResult: (listener: (transport: RawResultTransport) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: RawResultTransport) => {
       listener(payload);

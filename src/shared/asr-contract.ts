@@ -9,6 +9,8 @@ export const ASR_IPC_CHANNELS = {
   start: 'asr:start',
   pushAudio: 'asr:push-audio',
   stop: 'asr:stop',
+  getMicrophoneAccess: 'asr:get-microphone-access',
+  requestMicrophoneAccess: 'asr:request-microphone-access',
   result: 'asr:result',
   status: 'asr:status',
 } as const;
@@ -52,6 +54,12 @@ export interface AsrStatusEvent {
   emittedAt: number;
 }
 
+export interface MicrophoneAccessStatus {
+  status: string;
+  granted: boolean;
+  requiresRestart: boolean;
+}
+
 export interface SherpaAsrApi {
   /** Preload bridge API exposed on `window.sherpaAsr` via `contextBridge`. */
   startSession(payload: StartAsrRequest): Promise<StartAsrResponse>;
@@ -59,6 +67,8 @@ export interface SherpaAsrApi {
   pushAudioChunk(payload: AudioChunkPayload): Promise<void>;
   /** Final result is delivered via `onResult` before idle status. */
   stopSession(): Promise<StopAsrResponse>;
+  getMicrophoneAccess(): Promise<MicrophoneAccessStatus>;
+  requestMicrophoneAccess(): Promise<MicrophoneAccessStatus>;
   onResult(listener: (transport: RawResultTransport) => void): () => void;
   onStatus(listener: (event: AsrStatusEvent) => void): () => void;
 }

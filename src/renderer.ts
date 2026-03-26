@@ -129,9 +129,23 @@ const handleRendererError = (message: string, error?: unknown) => {
 };
 
 const ensurePermission = async () => {
-  if (permissionGranted) {
+  if (permissionGranted && mediaStream) {
     return;
   }
+
+  const microphoneAccess = await window.sherpaAsr.getMicrophoneAccess();
+  if (!microphoneAccess.granted) {
+    const requested = await window.sherpaAsr.requestMicrophoneAccess();
+    if (!requested.granted) {
+      const restartHint = requested.requiresRestart
+        ? ' Open System Settings > Privacy & Security > Microphone, enable the app, then restart it.'
+        : '';
+      throw new Error(
+        `Microphone permission is ${requested.status}.${restartHint}`,
+      );
+    }
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     permissionGranted = true;

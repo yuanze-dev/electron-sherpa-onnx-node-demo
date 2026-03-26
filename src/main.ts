@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, systemPreferences } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { SherpaAsrSession } from './main/asr-session';
@@ -11,6 +11,7 @@ import type {
   StartAsrResponse,
   StartAsrRequest,
   StopAsrResponse,
+  MicrophoneAccessStatus,
 } from './shared/asr-contract';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -20,6 +21,23 @@ if (started) {
 
 let mainWindow: BrowserWindow | null = null;
 let asrSession: SherpaAsrSession | null = null;
+
+const getMicrophoneAccess = (): MicrophoneAccessStatus => {
+  if (process.platform !== 'darwin') {
+    return {
+      status: 'granted',
+      granted: true,
+      requiresRestart: false,
+    };
+  }
+
+  const status = systemPreferences.getMediaAccessStatus('microphone');
+  return {
+    status,
+    granted: status === 'granted',
+    requiresRestart: status === 'denied' || status === 'restricted',
+  };
+};
 
 const createWindow = () => {
   // Create the browser window.
@@ -209,6 +227,33 @@ ipcMain.handle(
     }
   }
 },
+);
+
+ipcMain.handle(
+  ASR_IPC_CHANNELS.getMicrophoneAccess,
+  async (): Promise<MicrophoneAccessStatus> => getMicrophoneAccess(),
+);
+
+ipcMain.handle(
+  ASR_IPC_CHANNELS.requestMicrophoneAccess,
+  async (): Promise<MicrophoneAccessStatus> => {
+    if (process.platform !== 'darwin') {
+      return getMicrophoneAccess();
+    }
+
+    const status = getMicrophoneAccess();
+    if (status.granted || status.requiresRestart) {
+      return status;
+    }
+
+    const granted = await systemPreferences.askForMediaAccess('microphone');
+    const refreshed = getMicrophoneAccess();
+
+    return {
+      ...refreshed,
+      granted: granted && refreshed.granted,
+    };
+  },
 );
 
 // This method will be called when Electron has finished
